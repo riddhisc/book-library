@@ -244,6 +244,7 @@ document.addEventListener('click',async e=>{
   else if(act==='hit'){const n=nodes.find(x=>x.id===id);q='';cur={topic:n.topicId,path:[...anc(n),...(n.type==='folder'?[n.id]:[])]};render();scrollTo(0,0);if(n.type==='file')openFile(n.id)}
   else if(act==='cover'){coverFor=id;$('#covpick').click()}
   else if(act==='coverRemove'){const t=topics.find(x=>x.id===id);delete t.cover;await put('topics',t);render()}
+  else if(act==='saveKey'){const v=$('#akey').value.trim();try{v?localStorage.setItem('lib-key',v):localStorage.removeItem('lib-key')}catch(e){}toast(v?'Key saved.':'Key removed.')}
   else if(act==='settings'){openSettings()}
   else if(act==='covers'){for(const n of nodes.filter(x=>x.type==='file')){delete n.thumb;delete n.nothumb;await put('nodes',n)}toast('Covers will rebuild when you open each topic.')}
   else if(act==='wipe'){const s=document.getElementById('settings');if(s)s.remove();if(await dlg({title:'Delete everything?',body:'This permanently removes all topics, folders and PDFs from this browser. Back up first if you may want them again.',ok:'Delete everything',input:false,danger:true})){await removeNodes([...nodes]);for(const t of topics)await del('topics',t.id);topics=[];nodes=[];render()}}
@@ -338,13 +339,14 @@ async function openSettings(){
   o.innerHTML=`<div class="dlg set" role="dialog" aria-label="Settings"><h3>Settings</h3>
   <div class="srow"><div><b>Theme</b><p>Choose light or dark, or match your device.</p></div><select id="th" aria-label="Theme"><option value="">Match device</option><option value="light">Light</option><option value="dark">Dark</option><option value="midnight">Midnight blue</option><option value="forest">Forest green</option><option value="amoled">Black</option><option value="rose">Rose</option><option value="ocean">Ocean</option><option value="lavender">Lavender</option></select></div>
   <div class="srow"><div><b>Storage</b><p>${fmt(total)} used by ${plural(files.length,'PDF')}${quota}.</p></div></div>
+  <div class="srow"><div class="grow"><b>Claude API key</b><p>Optional. Turns on AI summaries on your own site. Saved only in this browser.</p><input id="akey" type="password" placeholder="sk-ant-…" autocomplete="off" aria-label="Claude API key"></div><button class="btn" data-act="saveKey">Save</button></div>
   <div class="srow"><div><b>Back up</b><p>Download everything as one file.</p></div><button class="btn" data-act="backup">Back up</button></div>
   <div class="srow"><div><b>Restore</b><p>Add the topics and books from a backup file.</p></div><button class="btn" data-act="restore">Restore</button></div>
   <div class="srow"><div><b>Rebuild covers</b><p>Make fresh cover images for all PDFs.</p></div><button class="btn" data-act="covers">Rebuild</button></div>
   <div class="srow"><div><b>Delete everything</b><p>Remove all topics and PDFs from this browser.</p></div><button class="btn danger" data-act="wipe">Delete</button></div>
   <div class="row2"><button class="btn pri" data-x>Done</button></div></div>`;
   document.body.append(o);
-  const th=o.querySelector('#th');th.value=theme;
+  const th=o.querySelector('#th');th.value=theme;o.querySelector('#akey').value=getKey();
   th.onchange=()=>{theme=th.value;applyTheme(theme);try{localStorage.setItem('lib-theme',theme)}catch(e){}};
   o.onclick=e=>{if(e.target===o||e.target.hasAttribute('data-x'))o.remove()};
   o.onkeydown=e=>{if(e.key==='Escape')o.remove()};
@@ -376,20 +378,54 @@ async function extractText(blob,onProg){
   const k=total>BUDGET?Math.ceil(total/BUDGET):1;
   return {text:pages.filter((_,i)=>i%k===0).join('\n'),k};
 }
+const getKey=()=>{try{return localStorage.getItem('lib-key')||''}catch(e){return ''}};
+async function askKey(key,prompt){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+  const j=await r.json();if(!r.ok)throw new Error((j.error&&j.error.message)||'The request failed.');
+  return {text:j.content.map(c=>c.text||'').join('')};
+}
+async function localSummary(text,show){
+  try{
+    if('Summarizer' in self&&(await Summarizer.availability())!=='unavailable'){
+      show('Preparing the on-device AI. The first time, it downloads a model…');
+      const s=await Summarizer.create({type:'key-points',format:'plain-text',length:'long',monitor(m){m.addEventListener('downloadprogress',e=>show(`Downloading the on-device AI: ${Math.round(e.loaded*100)}%`))}});
+      const chunks=[];for(let i=0;i<text.length;i+=8000)chunks.push(text.slice(i,i+8000));
+      const use=chunks.filter((_,i)=>i%Math.ceil(chunks.length/12)===0),out=[];
+      for(let i=0;i<use.length;i++){show(`Summarising part ${i+1} of ${use.length}…`);out.push(await s.summarize(use[i]))}
+      return out.join('\n\n');
+    }
+  }catch(e){}
+  show('Summarising…');
+  return extractive(text);
+}
+function extractive(text){
+  const stop=new Set('the a an and or of to in is are was were be been for on with as by at from that this it its into than then so such not no can will would should may might also more most other which who what when where how why you your we our they their there these those if but about over under between each any all'.split(' '));
+  const words=s=>(s.toLowerCase().match(/[a-z][a-z0-9+#-]{2,}/g)||[]).filter(w=>!stop.has(w));
+  const sents=(text.replace(/\s+/g,' ').match(/[^.!?]{25,300}[.!?]/g)||[]).map(s=>s.trim());
+  if(sents.length<3)return text.slice(0,1500);
+  const freq={};sents.forEach(s=>words(s).forEach(w=>freq[w]=(freq[w]||0)+1));
+  const sc=sents.map(s=>{const w=words(s);return w.reduce((a,x)=>a+freq[x],0)/Math.sqrt(w.length||1)});
+  const G=Math.min(10,Math.ceil(sents.length/8)),size=Math.ceil(sents.length/G),pick=[];
+  for(let g=0;g<G;g++){const idx=[];for(let i=g*size;i<Math.min(sents.length,(g+1)*size);i++)idx.push(i);idx.sort((a,b)=>sc[b]-sc[a]);pick.push(...idx.slice(0,2))}
+  return 'Key points from the book:\n\n'+pick.sort((a,b)=>a-b).map(i=>'- '+sents[i]).join('\n')+'\n\nThis summary was built on your device by picking the most important sentences. Add a Claude API key in Settings for a written AI summary.';
+}
 async function runSummary(n,panel,redo){
   const show=(t,done)=>{panel.hidden=false;panel.innerHTML=done?`<div class="sumtext">${esc(t)}</div><div class="sumbar"><button class="btn" data-copy>Copy</button><button class="btn" data-redo>Summarise again</button></div>`:`<p class="sub" role="status">${esc(t)}</p>`};
   if(n.summary&&!redo){show(n.summary,true);return}
   const sample=await getSample();
-  if(!sample||!window.pdfjsLib){panel.hidden=false;panel.innerHTML=`<p>Summaries run on Claude, which this page can’t reach from here. You can still do it in two steps: open Claude, attach this PDF, and send.</p><div class="sumbar"><a class="btn pri" href="https://claude.ai/new?q=${encodeURIComponent('Summarise the attached book: an overview, the main ideas, and key takeaways.')}" target="_blank" rel="noopener">Open Claude</a></div>`;return}
+  const key=getKey();
+  if(!window.pdfjsLib){show('Couldn’t load the PDF reader. Check your internet connection and try again.');return}
   try{
     const rec=await getOne('blobs',n.id);show('Reading the book…');
     const {text,k}=await extractText(rec.blob,t=>show(t));
     if(text.length<300){show('This PDF has no readable text. It may be a scan.');return}
+    if(!sample&&!key){const s=await localSummary(text,show);n.summary=s.trim()+(k>1?`\n\nNote: this is a long book, so about every ${k}th page was read.`:'');await put('nodes',n);show(n.summary,true);return}
+    const ask=sample||(p=>askKey(key,p));
     const chunks=[];for(let i=0;i<text.length;i+=25000)chunks.push(text.slice(i,i+25000));
     const parts=[];
-    for(let i=0;i<chunks.length;i++){show(`Summarising part ${i+1} of ${chunks.length}…`);const r=await sample(`Summarise this section of the book "${n.name}" in under 200 words. Keep the key ideas, terms and examples.\n\n${chunks[i]}`);parts.push(r.text)}
+    for(let i=0;i<chunks.length;i++){show(`Summarising part ${i+1} of ${chunks.length}…`);const r=await ask(`Summarise this section of the book "${n.name}" in under 200 words. Keep the key ideas, terms and examples.\n\n${chunks[i]}`);parts.push(r.text)}
     show('Writing the final summary…');
-    const f=await sample(`Below are summaries of consecutive sections of the book "${n.name}". Write one clear summary of the whole book in plain text with no markdown symbols. Use this order: a 2 to 3 sentence overview, then a line "Main ideas" followed by short lines that start with "- ", then a line "Who it is for" with one sentence.\n\n${parts.join('\n\n')}`);
+    const f=await ask(`Below are summaries of consecutive sections of the book "${n.name}". Write one clear summary of the whole book in plain text with no markdown symbols. Use this order: a 2 to 3 sentence overview, then a line "Main ideas" followed by short lines that start with "- ", then a line "Who it is for" with one sentence.\n\n${parts.join('\n\n')}`);
     n.summary=f.text.trim()+(k>1?`\n\nNote: this is a long book, so about every ${k}th page was read.`:'');
     await put('nodes',n);show(n.summary,true);
   }catch(e){show(e&&e.code==='rate_limited'?'Too many requests. Try again in a minute.':'Couldn’t summarise this book. '+((e&&e.message)||''))}
