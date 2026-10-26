@@ -87,6 +87,13 @@ body.dragging main{outline:3px dashed var(--acc);outline-offset:-8px}
 .tile .mt{color:var(--mute);font-size:12px}
 .tile .acts{top:6px;right:6px;flex-direction:column;align-items:flex-end}
 .hit .mt{overflow-wrap:anywhere}
+.sumpanel{padding:14px 16px;border-bottom:1px solid var(--line);max-height:42%;overflow:auto;background:var(--bg)}
+.sumpanel p{margin:0}
+.sumtext{white-space:pre-wrap;max-width:70ch}
+.sumbar{display:flex;gap:8px;margin-top:12px}
+a.btn{display:inline-block;text-decoration:none;color:inherit}
+.view a.btn.pri{color:var(--accink)}
+a.row{color:inherit;text-decoration:none}
 .card.has-cover{background-color:hsl(var(--h) 48% 30%);background-size:cover;background-position:center}
 .card.has-cover h2,.card.has-cover p{text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .card .acts{flex-direction:column;align-items:flex-end}
@@ -170,7 +177,7 @@ function render(){
   const app=$('#app');
   if(!cur.topic){
     const files=nodes.filter(n=>n.type==='file').length;
-    app.innerHTML=`<div class="top"><div class="grow"><h1>My library</h1><p class="sub">${plural(topics.length,'topic')}, ${plural(files,'file')}</p></div><button class="btn" data-act="settings">Settings</button><input type="file" id="rest" hidden><button class="btn pri" data-act="newTopic">New topic</button></div><input class="search" id="q" type="search" placeholder="Search all books and folders" aria-label="Search all books and folders"><div id="res"></div>`+
+    app.innerHTML=`<div class="top"><div class="grow"><h1>My library</h1><p class="sub">${plural(topics.length,'topic')}, ${plural(files,'file')}</p></div><button class="btn" data-act="settings">Settings</button><input type="file" id="rest" hidden><button class="btn pri" data-act="newTopic">New topic</button></div><input class="search" id="q" type="search" placeholder="Search topics, folders and books" aria-label="Search topics, folders and books"><div id="res"></div>`+
     (topics.length?`<div class="shelf">${topics.map(t=>{
       const all=nodes.filter(n=>n.topicId===t.id);
       return `<article class="card${t.cover?' has-cover':''}" tabindex="0" role="button" data-act="open" data-id="${t.id}" style="--h:${t.hue}${t.cover?`;background-image:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.8)),url('${t.cover}')`:''}" aria-label="Open ${esc(t.name)}">
@@ -215,10 +222,10 @@ async function openFile(id){
   if(!rec){toast('Couldn’t find that file’s data.');return}
   const url=URL.createObjectURL(rec.blob);
   const o=document.createElement('div');o.className='ov';
-  o.innerHTML=`<div class="view" role="dialog" aria-label="${esc(n.name)}"><header><b>${esc(n.name)}</b><a href="${url}" target="_blank" rel="noopener">Open in new tab</a><button class="btn" data-x>Close</button></header><iframe src="${url}" title="${esc(n.name)}"></iframe></div>`;
+  o.innerHTML=`<div class="view" role="dialog" aria-label="${esc(n.name)}"><header><b>${esc(n.name)}</b><button class="btn" data-sum>${n.summary?'Summary':'Summarise'}</button><a href="${url}" target="_blank" rel="noopener">Open in new tab</a><button class="btn" data-x>Close</button></header><div class="sumpanel" hidden></div><iframe src="${url}" title="${esc(n.name)}"></iframe></div>`;
   document.body.append(o);
   const close=()=>{o.remove();URL.revokeObjectURL(url)};
-  o.onclick=e=>{if(e.target===o||e.target.hasAttribute('data-x'))close()};
+  o.onclick=e=>{const b=e.target.closest('button,a'),pn=o.querySelector('.sumpanel');if(e.target===o||(b&&b.hasAttribute('data-x')))close();else if(b&&b.hasAttribute('data-sum'))runSummary(n,pn);else if(b&&b.hasAttribute('data-redo'))runSummary(n,pn,true);else if(b&&b.hasAttribute('data-copy'))navigator.clipboard.writeText(n.summary||'').then(()=>toast('Copied.'),()=>toast('Couldn’t copy.'))};
   o.onkeydown=e=>{if(e.key==='Escape')close()};
   o.querySelector('button').focus();
 }
@@ -233,6 +240,7 @@ document.addEventListener('click',async e=>{
   else if(act==='renameTopic'){const t=topics.find(x=>x.id===id);const name=await dlg({title:'Rename topic',value:t.name});if(name){t.name=name;await put('topics',t);render()}}
   else if(act==='delTopic'){const t=topics.find(x=>x.id===id);if(await dlg({title:`Delete “${t.name}”?`,body:'This removes the topic and every folder and PDF inside it from this browser.',ok:'Delete',input:false,danger:true})){await removeNodes(nodes.filter(n=>n.topicId===id));await del('topics',id);topics=topics.filter(x=>x.id!==id);render()}}
   else if(act==='move'){moveNode(nodes.find(x=>x.id===id))}
+  else if(act==='hitTopic'){q='';cur={topic:id,path:[]};render();scrollTo(0,0)}
   else if(act==='hit'){const n=nodes.find(x=>x.id===id);q='';cur={topic:n.topicId,path:[...anc(n),...(n.type==='folder'?[n.id]:[])]};render();scrollTo(0,0);if(n.type==='file')openFile(n.id)}
   else if(act==='cover'){coverFor=id;$('#covpick').click()}
   else if(act==='coverRemove'){const t=topics.find(x=>x.id===id);delete t.cover;await put('topics',t);render()}
@@ -266,7 +274,13 @@ function doSearch(){
   const r=$('#res');if(!r)return;const s=q.trim().toLowerCase();$('#app').classList.toggle('searching',!!s);
   if(!s){r.innerHTML='';return}
   const hits=nodes.filter(n=>n.name.toLowerCase().includes(s)).slice(0,50);
-  r.innerHTML=hits.length?`<div class="list">${hits.map(n=>{const t=topics.find(x=>x.id===n.topicId);const where=[t&&t.name,...anc(n).map(id=>nodes.find(k=>k.id===id).name)].join(' / ');return `<div class="row hit" tabindex="0" role="button" data-act="hit" data-id="${n.id}">${n.type==='folder'?iFolder:iFile}<div class="grow"><div class="nm">${esc(n.name)}</div><div class="mt">${esc(where)}</div></div></div>`}).join('')}</div>`:`<p class="sub">No matches for “${esc(q)}”.</p>`;
+  const tm=topics.filter(t=>t.name.toLowerCase().includes(s));
+  const iBook='<svg viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>';
+  r.innerHTML=(hits.length||tm.length)?`<div class="list">${tm.map(t=>`<div class="row hit" tabindex="0" role="button" data-act="hitTopic" data-id="${t.id}">${iBook}<div class="grow"><div class="nm">${esc(t.name)}</div><div class="mt">Topic</div></div></div>`).join('')}${hits.map(n=>{const t=topics.find(x=>x.id===n.topicId);const where=[t&&t.name,...anc(n).map(id=>nodes.find(k=>k.id===id).name)].join(' / ');return `<div class="row hit" tabindex="0" role="button" data-act="hit" data-id="${n.id}">${n.type==='folder'?iFolder:iFile}<div class="grow"><div class="nm">${esc(n.name)}</div><div class="mt">${esc(where)}</div></div></div>`}).join('')}</div>`:`<p class="sub">No matches for “${esc(q)}”.</p>`;
+  const en=encodeURIComponent(q.trim()),qq=esc(q.trim());
+  const iSearch='<svg viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
+  const iAI='<svg viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.3 6.2L21 12l-6.7 2.8L12 21l-2.3-6.2L3 12l6.7-2.8z"/></svg>';
+  r.insertAdjacentHTML('beforeend',`<div class="list"><a class="row hit" href="https://www.google.com/search?q=${en}" target="_blank" rel="noopener">${iSearch}<div class="grow"><div class="nm">Search Google for “${qq}”</div><div class="mt">Opens in a new tab</div></div></a><a class="row hit" href="https://claude.ai/new?q=${en}" target="_blank" rel="noopener">${iAI}<div class="grow"><div class="nm">Ask Claude about “${qq}”</div><div class="mt">Opens in a new tab</div></div></a></div>`);
 }
 async function moveNode(n){
   const bad=new Set([n.id,...descendants(n.id).map(d=>d.id)]);
@@ -351,6 +365,35 @@ document.addEventListener('change',async e=>{
   const t=topics.find(x=>x.id===coverFor);if(!f||!t)return;
   try{t.cover=await imgToCover(f);await put('topics',t);render();toast('Cover updated.')}catch(err){toast(err.message)}
 });
+async function getSample(){try{return window.claude&&claude.use?await claude.use('sample'):null}catch(e){return null}}
+async function extractText(blob,onProg){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
+  const N=pdf.numPages,pages=[];
+  for(let i=1;i<=Math.min(N,800);i++){const pg=await pdf.getPage(i);const tc=await pg.getTextContent();pages.push(tc.items.map(x=>x.str).join(' ').replace(/\s+/g,' ').trim());if(i%20===0)onProg(`Reading page ${i} of ${N}…`)}
+  pdf.destroy();
+  const total=pages.reduce((s,p)=>s+p.length,0),BUDGET=150000;
+  const k=total>BUDGET?Math.ceil(total/BUDGET):1;
+  return {text:pages.filter((_,i)=>i%k===0).join('\n'),k};
+}
+async function runSummary(n,panel,redo){
+  const show=(t,done)=>{panel.hidden=false;panel.innerHTML=done?`<div class="sumtext">${esc(t)}</div><div class="sumbar"><button class="btn" data-copy>Copy</button><button class="btn" data-redo>Summarise again</button></div>`:`<p class="sub" role="status">${esc(t)}</p>`};
+  if(n.summary&&!redo){show(n.summary,true);return}
+  const sample=await getSample();
+  if(!sample||!window.pdfjsLib){panel.hidden=false;panel.innerHTML=`<p>Summaries run on Claude, which this page can’t reach from here. You can still do it in two steps: open Claude, attach this PDF, and send.</p><div class="sumbar"><a class="btn pri" href="https://claude.ai/new?q=${encodeURIComponent('Summarise the attached book: an overview, the main ideas, and key takeaways.')}" target="_blank" rel="noopener">Open Claude</a></div>`;return}
+  try{
+    const rec=await getOne('blobs',n.id);show('Reading the book…');
+    const {text,k}=await extractText(rec.blob,t=>show(t));
+    if(text.length<300){show('This PDF has no readable text. It may be a scan.');return}
+    const chunks=[];for(let i=0;i<text.length;i+=25000)chunks.push(text.slice(i,i+25000));
+    const parts=[];
+    for(let i=0;i<chunks.length;i++){show(`Summarising part ${i+1} of ${chunks.length}…`);const r=await sample(`Summarise this section of the book "${n.name}" in under 200 words. Keep the key ideas, terms and examples.\n\n${chunks[i]}`);parts.push(r.text)}
+    show('Writing the final summary…');
+    const f=await sample(`Below are summaries of consecutive sections of the book "${n.name}". Write one clear summary of the whole book in plain text with no markdown symbols. Use this order: a 2 to 3 sentence overview, then a line "Main ideas" followed by short lines that start with "- ", then a line "Who it is for" with one sentence.\n\n${parts.join('\n\n')}`);
+    n.summary=f.text.trim()+(k>1?`\n\nNote: this is a long book, so about every ${k}th page was read.`:'');
+    await put('nodes',n);show(n.summary,true);
+  }catch(e){show(e&&e.code==='rate_limited'?'Too many requests. Try again in a minute.':'Couldn’t summarise this book. '+((e&&e.message)||''))}
+}
 addEventListener('unhandledrejection',e=>toast('Something went wrong: '+((e.reason&&e.reason.message)||e.reason)));
 addEventListener('error',e=>toast('Something went wrong: '+e.message));
 (async()=>{topics=(await getAll('topics')).sort((a,b)=>a.created-b.created);nodes=await getAll('nodes');render()})();
