@@ -91,12 +91,21 @@ body.dragging main{outline:3px dashed var(--acc);outline-offset:-8px}
 .sumpanel p{margin:0}
 .sumtext{white-space:pre-wrap;max-width:70ch}
 .sumbar{display:flex;gap:8px;margin-top:12px}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px;max-width:420px}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .3s}
 a.btn{display:inline-block;text-decoration:none;color:inherit}
 .view a.btn.pri{color:var(--accink)}
+.ov.full{padding:0}
+.ov.full .view{width:100%;height:100%;border-radius:0}
+.view:fullscreen{width:100vw;height:100vh;border-radius:0}
 a.row{color:inherit;text-decoration:none}
 .card.has-cover{background-color:hsl(var(--h) 48% 30%);background-size:cover;background-position:center}
 .card.has-cover h2,.card.has-cover p{text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .card .acts{flex-direction:column;align-items:flex-end}
+.gear{position:absolute;right:10px;bottom:10px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.gear:hover{background:rgba(0,0,0,.7)}
+.card p{padding-right:38px}
+.menu{display:grid;gap:8px}
 .set{width:min(520px,100%)}
 .srow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0 0;border-top:1px solid var(--line)}
 .srow p{font-size:14px}
@@ -181,7 +190,7 @@ function render(){
     (topics.length?`<div class="shelf">${topics.map(t=>{
       const all=nodes.filter(n=>n.topicId===t.id);
       return `<article class="card${t.cover?' has-cover':''}" tabindex="0" role="button" data-act="open" data-id="${t.id}" style="--h:${t.hue}${t.cover?`;background-image:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.8)),url('${t.cover}')`:''}" aria-label="Open ${esc(t.name)}">
-        <div class="acts"><button class="mini" data-act="renameTopic" data-id="${t.id}">Rename</button><button class="mini" data-act="cover" data-id="${t.id}">${t.cover?'Change cover':'Add cover'}</button>${t.cover?`<button class="mini" data-act="coverRemove" data-id="${t.id}">Remove cover</button>`:''}<button class="mini" data-act="delTopic" data-id="${t.id}">Delete</button></div>
+        <button class="gear" data-act="topicMenu" data-id="${t.id}" aria-label="Options for ${esc(t.name)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
         <h2>${esc(t.name)}</h2><p>${plural(all.filter(n=>n.type==='folder').length,'folder')}, ${plural(all.filter(n=>n.type==='file').length,'file')}</p></article>`}).join('')}</div>`
     :`<div class="empty"><h2>Start with a topic</h2><p>Make a card for a subject, like TypeScript. Open it to add folders and upload your book PDFs.</p></div>`);
     wireHome();
@@ -222,10 +231,10 @@ async function openFile(id){
   if(!rec){toast('Couldn’t find that file’s data.');return}
   const url=URL.createObjectURL(rec.blob);
   const o=document.createElement('div');o.className='ov';
-  o.innerHTML=`<div class="view" role="dialog" aria-label="${esc(n.name)}"><header><b>${esc(n.name)}</b><button class="btn" data-sum>${n.summary?'Summary':'Summarise'}</button><a href="${url}" target="_blank" rel="noopener">Open in new tab</a><button class="btn" data-x>Close</button></header><div class="sumpanel" hidden></div><iframe src="${url}" title="${esc(n.name)}"></iframe></div>`;
+  o.innerHTML=`<div class="view" role="dialog" aria-label="${esc(n.name)}"><header><b>${esc(n.name)}</b><button class="btn" data-sum>${n.summary?'Summary':'Summarise'}</button><a href="${url}" target="_blank" rel="noopener">Open in new tab</a><button class="btn" data-fs>Full screen</button><button class="btn" data-x>Close</button></header><div class="sumpanel" hidden></div><iframe src="${url}" title="${esc(n.name)}"></iframe></div>`;
   document.body.append(o);
-  const close=()=>{o.remove();URL.revokeObjectURL(url)};
-  o.onclick=e=>{const b=e.target.closest('button,a'),pn=o.querySelector('.sumpanel');if(e.target===o||(b&&b.hasAttribute('data-x')))close();else if(b&&b.hasAttribute('data-sum'))runSummary(n,pn);else if(b&&b.hasAttribute('data-redo'))runSummary(n,pn,true);else if(b&&b.hasAttribute('data-copy'))navigator.clipboard.writeText(n.summary||'').then(()=>toast('Copied.'),()=>toast('Couldn’t copy.'))};
+  const close=()=>{if(document.fullscreenElement)document.exitFullscreen();o.remove();URL.revokeObjectURL(url)};
+  o.onclick=e=>{const b=e.target.closest('button,a'),pn=o.querySelector('.sumpanel');if(e.target===o||(b&&b.hasAttribute('data-x')))close();else if(b&&b.hasAttribute('data-fs'))toggleFull(o,b);else if(b&&b.hasAttribute('data-sum'))runSummary(n,pn);else if(b&&b.hasAttribute('data-redo'))runSummary(n,pn,true);else if(b&&b.hasAttribute('data-copy'))navigator.clipboard.writeText(n.summary||'').then(()=>toast('Copied.'),()=>toast('Couldn’t copy.'))};
   o.onkeydown=e=>{if(e.key==='Escape')close()};
   o.querySelector('button').focus();
 }
@@ -242,6 +251,7 @@ document.addEventListener('click',async e=>{
   else if(act==='move'){moveNode(nodes.find(x=>x.id===id))}
   else if(act==='hitTopic'){q='';cur={topic:id,path:[]};render();scrollTo(0,0)}
   else if(act==='hit'){const n=nodes.find(x=>x.id===id);q='';cur={topic:n.topicId,path:[...anc(n),...(n.type==='folder'?[n.id]:[])]};render();scrollTo(0,0);if(n.type==='file')openFile(n.id)}
+  else if(act==='topicMenu'){topicMenu(topics.find(x=>x.id===id))}
   else if(act==='cover'){coverFor=id;$('#covpick').click()}
   else if(act==='coverRemove'){const t=topics.find(x=>x.id===id);delete t.cover;await put('topics',t);render()}
   else if(act==='saveKey'){const v=$('#akey').value.trim();try{v?localStorage.setItem('lib-key',v):localStorage.removeItem('lib-key')}catch(e){}toast(v?'Key saved.':'Key removed.')}
@@ -372,7 +382,7 @@ async function extractText(blob,onProg){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
   const N=pdf.numPages,pages=[];
-  for(let i=1;i<=Math.min(N,800);i++){const pg=await pdf.getPage(i);const tc=await pg.getTextContent();pages.push(tc.items.map(x=>x.str).join(' ').replace(/\s+/g,' ').trim());if(i%20===0)onProg(`Reading page ${i} of ${N}…`)}
+  for(let i=1;i<=Math.min(N,800);i++){const pg=await pdf.getPage(i);const tc=await pg.getTextContent();pages.push(tc.items.map(x=>x.str).join(' ').replace(/\s+/g,' ').trim());if(i%20===0)onProg(`Reading page ${i} of ${N}…`,Math.round(i/Math.min(N,800)*100))}
   pdf.destroy();
   const total=pages.reduce((s,p)=>s+p.length,0),BUDGET=150000;
   const k=total>BUDGET?Math.ceil(total/BUDGET):1;
@@ -388,10 +398,10 @@ async function localSummary(text,show){
   try{
     if('Summarizer' in self&&(await Summarizer.availability())!=='unavailable'){
       show('Preparing the on-device AI. The first time, it downloads a model…');
-      const s=await Summarizer.create({type:'key-points',format:'plain-text',length:'long',monitor(m){m.addEventListener('downloadprogress',e=>show(`Downloading the on-device AI: ${Math.round(e.loaded*100)}%`))}});
+      const s=await Summarizer.create({type:'key-points',format:'plain-text',length:'long',monitor(m){m.addEventListener('downloadprogress',e=>show(`Downloading the on-device AI: ${Math.round(e.loaded*100)}%`,false,Math.round(e.loaded*100)))}});
       const chunks=[];for(let i=0;i<text.length;i+=8000)chunks.push(text.slice(i,i+8000));
       const use=chunks.filter((_,i)=>i%Math.ceil(chunks.length/12)===0),out=[];
-      for(let i=0;i<use.length;i++){show(`Summarising part ${i+1} of ${use.length}…`);out.push(await s.summarize(use[i]))}
+      for(let i=0;i<use.length;i++){show(`Summarising part ${i+1} of ${use.length}…`,false,Math.round(i/use.length*100));out.push(await s.summarize(use[i]))}
       return out.join('\n\n');
     }
   }catch(e){}
@@ -410,25 +420,41 @@ function extractive(text){
   return 'Key points from the book:\n\n'+pick.sort((a,b)=>a-b).map(i=>'- '+sents[i]).join('\n')+'\n\nThis summary was built on your device by picking the most important sentences. Add a Claude API key in Settings for a written AI summary.';
 }
 async function runSummary(n,panel,redo){
-  const show=(t,done)=>{panel.hidden=false;panel.innerHTML=done?`<div class="sumtext">${esc(t)}</div><div class="sumbar"><button class="btn" data-copy>Copy</button><button class="btn" data-redo>Summarise again</button></div>`:`<p class="sub" role="status">${esc(t)}</p>`};
+  const show=(t,done,pct)=>{panel.hidden=false;panel.innerHTML=done?`<div class="sumtext">${esc(t)}</div><div class="sumbar"><button class="btn" data-copy>Copy</button><button class="btn" data-redo>Summarise again</button></div>`:`<p class="sub" role="status">${esc(t)}</p>${pct==null?'':`<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>`}`};
   if(n.summary&&!redo){show(n.summary,true);return}
   const sample=await getSample();
   const key=getKey();
   if(!window.pdfjsLib){show('Couldn’t load the PDF reader. Check your internet connection and try again.');return}
   try{
-    const rec=await getOne('blobs',n.id);show('Reading the book…');
-    const {text,k}=await extractText(rec.blob,t=>show(t));
+    const rec=await getOne('blobs',n.id);show('Reading the book…',false,0);
+    const {text,k}=await extractText(rec.blob,(t,p)=>show(t,false,p));
     if(text.length<300){show('This PDF has no readable text. It may be a scan.');return}
     if(!sample&&!key){const s=await localSummary(text,show);n.summary=s.trim()+(k>1?`\n\nNote: this is a long book, so about every ${k}th page was read.`:'');await put('nodes',n);show(n.summary,true);return}
     const ask=sample||(p=>askKey(key,p));
     const chunks=[];for(let i=0;i<text.length;i+=25000)chunks.push(text.slice(i,i+25000));
     const parts=[];
-    for(let i=0;i<chunks.length;i++){show(`Summarising part ${i+1} of ${chunks.length}…`);const r=await ask(`Summarise this section of the book "${n.name}" in under 200 words. Keep the key ideas, terms and examples.\n\n${chunks[i]}`);parts.push(r.text)}
-    show('Writing the final summary…');
+    for(let i=0;i<chunks.length;i++){show(`Summarising part ${i+1} of ${chunks.length}…`,false,Math.round(i/(chunks.length+1)*100));const r=await ask(`Summarise this section of the book "${n.name}" in under 200 words. Keep the key ideas, terms and examples.\n\n${chunks[i]}`);parts.push(r.text)}
+    show('Writing the final summary…',false,Math.round(chunks.length/(chunks.length+1)*100));
     const f=await ask(`Below are summaries of consecutive sections of the book "${n.name}". Write one clear summary of the whole book in plain text with no markdown symbols. Use this order: a 2 to 3 sentence overview, then a line "Main ideas" followed by short lines that start with "- ", then a line "Who it is for" with one sentence.\n\n${parts.join('\n\n')}`);
     n.summary=f.text.trim()+(k>1?`\n\nNote: this is a long book, so about every ${k}th page was read.`:'');
     await put('nodes',n);show(n.summary,true);
   }catch(e){show(e&&e.code==='rate_limited'?'Too many requests. Try again in a minute.':'Couldn’t summarise this book. '+((e&&e.message)||''))}
+}
+async function toggleFull(o,b){
+  const v=o.querySelector('.view');
+  if(document.fullscreenElement){await document.exitFullscreen();return}
+  if(o.classList.contains('full')){o.classList.remove('full');b.textContent='Full screen';return}
+  o.classList.add('full');b.textContent='Exit full screen';
+  try{await v.requestFullscreen()}catch(e){}
+}
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)document.querySelectorAll('.ov.full').forEach(o=>{o.classList.remove('full');const b=o.querySelector('[data-fs]');if(b)b.textContent='Full screen'})});
+function topicMenu(t){
+  const o=document.createElement('div');o.className='ov';
+  o.innerHTML=`<div class="dlg" role="dialog" aria-label="Options for ${esc(t.name)}"><h3>${esc(t.name)}</h3><div class="menu"><button class="btn" data-act="renameTopic" data-id="${t.id}">Rename</button><button class="btn" data-act="cover" data-id="${t.id}">${t.cover?'Change cover':'Add cover'}</button>${t.cover?`<button class="btn" data-act="coverRemove" data-id="${t.id}">Remove cover</button>`:''}<button class="btn danger" data-act="delTopic" data-id="${t.id}">Delete topic</button></div><div class="row2"><button class="btn ghost" data-x>Close</button></div></div>`;
+  document.body.append(o);
+  o.onclick=e=>{if(e.target===o||e.target.hasAttribute('data-x')||e.target.closest('[data-act]'))o.remove()};
+  o.onkeydown=e=>{if(e.key==='Escape')o.remove()};
+  o.querySelector('button').focus();
 }
 addEventListener('unhandledrejection',e=>toast('Something went wrong: '+((e.reason&&e.reason.message)||e.reason)));
 addEventListener('error',e=>toast('Something went wrong: '+e.message));
