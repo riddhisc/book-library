@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eceff4;--surf:#fff;--ink:#17203a;--mute:#5d6783;--line:#d5dbe7;--acc:#2f5bea;--accink:#fff;--danger:#c0392b;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151d;--surf:#1b2030;--ink:#e8ecf7;--mute:#9aa4bf;--line:#2c3350;--acc:#7d9bff;--accink:#0e1220;--danger:#ff7b6b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12151d;--surf:#1b2030;--ink:#e8ecf7;--mute:#9aa4bf;--line:#2c3350;--acc:#7d9bff;--accink:#0e1220;--danger:#ff7b6b;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Instrument Sans",system-ui,sans-serif}
+button,input{font:inherit;color:inherit}
+h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",sans-serif;margin:0;line-height:1.1}
+main{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;margin-bottom:28px}
+.top h1{font-size:clamp(30px,6vw,44px);font-weight:700;letter-spacing:-.02em}
+.sub{margin:4px 0 0;color:var(--mute);font-size:15px}
+.grow{flex:1;min-width:0}
+.btn{border:1px solid var(--line);background:var(--surf);padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--accink)}
+.btn.ghost{background:transparent}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:22px}
+.card{position:relative;aspect-ratio:3/4;border-radius:4px 10px 10px 4px;color:#fff;cursor:pointer;overflow:hidden;
+background:linear-gradient(180deg,hsl(var(--h) 46% 36%),hsl(var(--h) 50% 27%));box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 8px 18px -8px hsl(var(--h) 60% 15% / .7);
+display:flex;flex-direction:column;justify-content:flex-end;padding:18px 16px 16px 30px;transition:transform .15s}
+.card:hover{transform:translateY(-3px)}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:15px;background:hsl(var(--h) 50% 20%);box-shadow:inset -2px 0 0 rgba(255,255,255,.14)}
+.card h2{font-size:23px;font-weight:700;overflow-wrap:anywhere;letter-spacing:-.01em}
+.card p{margin:8px 0 0;font-size:13px;opacity:.82}
+.acts{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.card:hover .acts,.card:focus-within .acts,.row:hover .acts,.row:focus-within .acts{opacity:1}
+@media (hover:none){.acts{opacity:1}}
+.mini{border:0;background:rgba(0,0,0,.35);color:#fff;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+.mini:hover{background:rgba(0,0,0,.6)}
+.row .mini{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.row .mini.del:hover{color:var(--danger);border-color:var(--danger)}
+.back{display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 8px;margin-bottom:14px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin:8px 0 0;font-size:15px;color:var(--mute)}
+.crumbs button{border:0;background:none;padding:2px 4px;cursor:pointer;color:var(--acc);font-weight:500;border-radius:4px}
+.crumbs span.cur{color:var(--ink);font-weight:600}
+.list{display:grid;gap:8px;margin-top:22px}
+.row{display:flex;align-items:center;gap:14px;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer}
+.row:hover{border-color:var(--acc)}
+.row svg{flex:none;width:26px;height:26px}
+.row .nm{font-weight:600;overflow-wrap:anywhere}
+.row .mt{color:var(--mute);font-size:13px}
+.row .acts{position:static}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;color:var(--mute);margin-top:22px}
+.empty{padding:54px 20px;text-align:center;color:var(--mute);max-width:430px;margin:20px auto}
+.empty h2{color:var(--ink);font-size:24px;margin-bottom:8px}
+body.dragging main{outline:3px dashed var(--acc);outline-offset:-8px}
+.ov{position:fixed;inset:0;background:rgba(10,14,28,.6);display:flex;align-items:center;justify-content:center;padding:18px;z-index:20}
+.dlg{background:var(--surf);border-radius:12px;padding:22px;width:min(420px,100%);display:grid;gap:14px}
+.dlg h3{font-size:21px}.dlg p{margin:0;color:var(--mute)}
+.dlg input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 12px;width:100%}
+.dlg .row2{display:flex;justify-content:flex-end;gap:8px}
+.view{background:var(--surf);border-radius:12px;width:min(960px,100%);height:min(88vh,100%);display:flex;flex-direction:column;overflow:hidden}
+.view header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.view header b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view iframe{flex:1;border:0;width:100%;background:#fff}
+.view a{color:var(--acc);font-weight:500}
+#note{background:var(--surf);border:1px solid var(--danger);color:var(--danger);padding:10px 14px;border-radius:8px;margin-bottom:18px;font-size:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:30}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <div id="note" hidden>Storage isn’t available in this browser, so files will be lost when you close the page.</div>
+  <div id="app"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+const fmt=b=>b<1024?b+' B':b<1048576?(b/1024).toFixed(0)+' KB':(b/1048576).toFixed(1)+' MB';
+
+/* ---------- storage (IndexedDB, with in-memory fallback) ---------- */
+let persistent=true;
+const mem={topics:new Map(),nodes:new Map(),blobs:new Map()};
+let dbp;
+try{
+  dbp=new Promise((res,rej)=>{
+    const r=indexedDB.open('book-library',1);
+    r.onupgradeneeded=()=>{const d=r.result;['topics','nodes','blobs'].forEach(n=>d.createObjectStore(n,{keyPath:'id'}))};
+    r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+  });
+}catch(e){dbp=Promise.reject(e)}
+dbp.catch(()=>fail());
+function fail(){persistent=false;$('#note').hidden=false}
+async function idb(name,mode,fn){
+  const d=await dbp;
+  return new Promise((res,rej)=>{
+    const t=d.transaction(name,mode);const r=fn(t.objectStore(name));
+    t.oncomplete=()=>res(r&&r.result);t.onerror=t.onabort=()=>rej(t.error);
+  });
+}
+async function getAll(n){if(persistent)try{return await idb(n,'readonly',s=>s.getAll())}catch(e){fail()}return [...mem[n].values()]}
+async function getOne(n,id){if(persistent)try{return await idb(n,'readonly',s=>s.get(id))}catch(e){fail()}return mem[n].get(id)}
+async function put(n,o){if(persistent)try{return await idb(n,'readwrite',s=>s.put(o))}catch(e){fail()}mem[n].set(o.id,o)}
+async function del(n,id){if(persistent)try{return await idb(n,'readwrite',s=>s.delete(id))}catch(e){fail()}mem[n].delete(id)}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+
+/* ---------- state ---------- */
+let topics=[],nodes=[];
+let cur={topic:null,path:[]}; // path = folder ids
+const kids=(topicId,parent)=>nodes.filter(n=>n.topicId===topicId&&n.parentId===parent);
+function descendants(id){const out=[];(function walk(p){nodes.filter(n=>n.parentId===p).forEach(n=>{out.push(n);if(n.type==='folder')walk(n.id)})})(id);return out}
+const hueFor=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
+
+/* ---------- ui helpers ---------- */
+function dlg({title,label,value='',ok='Save',input=true,danger=false,body=''}){
+  return new Promise(res=>{
+    const o=document.createElement('div');o.className='ov';
+    o.innerHTML=`<form class="dlg"><h3>${esc(title)}</h3>${body?`<p>${esc(body)}</p>`:''}${input?`<input name="v" value="${esc(value)}" maxlength="80" autocomplete="off" aria-label="${esc(label||title)}">`:''}<div class="row2"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn ${danger?'danger':'pri'}">${esc(ok)}</button></div></form>`;
+    document.body.append(o);
+    const f=o.firstChild,i=f.elements.v;
+    if(i){i.focus();i.select()}else f.querySelector('button:last-child').focus();
+    const done=v=>{o.remove();res(v)};
+    f.onsubmit=e=>{e.preventDefault();done(input?(i.value.trim()||null):true)};
+    o.onclick=e=>{if(e.target===o||e.target.hasAttribute('data-x'))done(null)};
+    o.onkeydown=e=>{if(e.key==='Escape')done(null)};
+  });
+}
+let tt;function toast(m){let t=$('#toast');if(!t){t=document.createElement('div');t.id='toast';t.setAttribute('role','status');document.body.append(t)}t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3200)}
+const iFolder='<svg viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const iFile='<svg viewBox="0 0 24 24" fill="none" stroke="var(--mute)" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/></svg>';
+
+/* ---------- render ---------- */
+function render(){
+  const app=$('#app');
+  if(!cur.topic){
+    const files=nodes.filter(n=>n.type==='file').length;
+    app.innerHTML=`<div class="top"><div class="grow"><h1>My library</h1><p class="sub">${plural(topics.length,'topic')}, ${plural(files,'file')}</p></div><button class="btn pri" data-act="newTopic">New topic</button></div>`+
+    (topics.length?`<div class="shelf">${topics.map(t=>{
+      const all=nodes.filter(n=>n.topicId===t.id);
+      return `<article class="card" tabindex="0" role="button" data-act="open" data-id="${t.id}" style="--h:${t.hue}" aria-label="Open ${esc(t.name)}">
+        <div class="acts"><button class="mini" data-act="renameTopic" data-id="${t.id}">Rename</button><button class="mini" data-act="delTopic" data-id="${t.id}">Delete</button></div>
+        <h2>${esc(t.name)}</h2><p>${plural(all.filter(n=>n.type==='folder').length,'folder')}, ${plural(all.filter(n=>n.type==='file').length,'file')}</p></article>`}).join('')}</div>`
+    :`<div class="empty"><h2>Start with a topic</h2><p>Make a card for a subject, like TypeScript. Open it to add folders and upload your book PDFs.</p></div>`);
+    return;
+  }
+  const t=topics.find(x=>x.id===cur.topic);
+  const parent=cur.path.length?cur.path[cur.path.length-1]:null;
+  const items=kids(t.id,parent).sort((a,b)=>(a.type===b.type?0:a.type==='folder'?-1:1)||a.name.localeCompare(b.name,undefined,{numeric:true}));
+  const crumbs=[`<button data-act="home">All topics</button>`,
+    cur.path.length?`<button data-act="crumb" data-i="-1">${esc(t.name)}</button>`:`<span class="cur">${esc(t.name)}</span>`];
+  cur.path.forEach((id,i)=>{const f=nodes.find(n=>n.id===id);if(!f)return;crumbs.push(i===cur.path.length-1?`<span class="cur">${esc(f.name)}</span>`:`<button data-act="crumb" data-i="${i}">${esc(f.name)}</button>`)});
+  app.innerHTML=`<div class="top"><div class="grow"><button class="btn back" data-act="back" aria-label="${parent?'Back to parent folder':'Back to all topics'}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back</button><h1>${esc(parent?nodes.find(n=>n.id===parent).name:t.name)}</h1><nav class="crumbs" aria-label="Location">${crumbs.join('<span>/</span>')}</nav></div>
+    <button class="btn" data-act="newFolder">New folder</button><button class="btn pri" data-act="upload">Add PDFs</button><input type="file" id="pick" accept=".pdf,application/pdf" multiple hidden></div>`+
+    (items.length?`<div class="list">${items.map(n=>`<div class="row" tabindex="0" role="button" data-act="${n.type==='folder'?'enter':'view'}" data-id="${n.id}">
+      ${n.type==='folder'?iFolder:iFile}<div class="grow"><div class="nm">${esc(n.name)}</div><div class="mt">${n.type==='folder'?plural(nodes.filter(k=>k.parentId===n.id).length,'item'):fmt(n.size)}</div></div>
+      <div class="acts"><button class="mini" data-act="rename" data-id="${n.id}">Rename</button><button class="mini del" data-act="del" data-id="${n.id}">Delete</button></div></div>`).join('')}</div>`
+    :`<div class="drop">This ${parent?'folder':'topic'} is empty. Drop PDFs anywhere on the page, or use Add PDFs.</div>`);
+  $('#pick').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+}
+
+/* ---------- actions ---------- */
+async function addFiles(files){
+  if(!cur.topic)return;
+  const parent=cur.path.length?cur.path[cur.path.length-1]:null;
+  let ok=0,skip=0;
+  for(const f of files){
+    if(!(f.type==='application/pdf'||/\.pdf$/i.test(f.name))){skip++;continue}
+    const n={id:uid(),topicId:cur.topic,parentId:parent,type:'file',name:f.name.replace(/\.pdf$/i,''),size:f.size,added:Date.now()};
+    await put('blobs',{id:n.id,blob:f});await put('nodes',n);nodes.push(n);ok++;
+  }
+  render();
+  toast((ok?`Added ${plural(ok,'PDF')}.`:'')+(skip?` ${plural(skip,'file')} skipped: only PDFs are supported.`:''));
+}
+async function openFile(id){
+  const n=nodes.find(x=>x.id===id),rec=await getOne('blobs',id);
+  if(!rec){toast('Couldn’t find that file’s data.');return}
+  const url=URL.createObjectURL(rec.blob);
+  const o=document.createElement('div');o.className='ov';
+  o.innerHTML=`<div class="view" role="dialog" aria-label="${esc(n.name)}"><header><b>${esc(n.name)}</b><a href="${url}" target="_blank" rel="noopener">Open in new tab</a><button class="btn" data-x>Close</button></header><iframe src="${url}" title="${esc(n.name)}"></iframe></div>`;
+  document.body.append(o);
+  const close=()=>{o.remove();URL.revokeObjectURL(url)};
+  o.onclick=e=>{if(e.target===o||e.target.hasAttribute('data-x'))close()};
+  o.onkeydown=e=>{if(e.key==='Escape')close()};
+  o.querySelector('button').focus();
+}
+async function removeNodes(list){for(const n of list){await del('nodes',n.id);if(n.type==='file')await del('blobs',n.id)}const ids=new Set(list.map(n=>n.id));nodes=nodes.filter(n=>!ids.has(n.id))}
+
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const act=el.dataset.act,id=el.dataset.id;
+  if(el.matches('.mini'))e.stopPropagation();
+  if(act==='newTopic'){const name=await dlg({title:'New topic',label:'Topic name',ok:'Create'});if(name){const t={id:uid(),name,hue:hueFor(name),created:Date.now()};await put('topics',t);topics.push(t);render()}}
+  else if(act==='open'){cur={topic:id,path:[]};render();scrollTo(0,0)}
+  else if(act==='renameTopic'){const t=topics.find(x=>x.id===id);const name=await dlg({title:'Rename topic',value:t.name});if(name){t.name=name;await put('topics',t);render()}}
+  else if(act==='delTopic'){const t=topics.find(x=>x.id===id);if(await dlg({title:`Delete “${t.name}”?`,body:'This removes the topic and every folder and PDF inside it from this browser.',ok:'Delete',input:false,danger:true})){await removeNodes(nodes.filter(n=>n.topicId===id));await del('topics',id);topics=topics.filter(x=>x.id!==id);render()}}
+  else if(act==='back'){if(cur.path.length)cur.path.pop();else cur={topic:null,path:[]};render();scrollTo(0,0)}
+  else if(act==='home'){cur={topic:null,path:[]};render()}
+  else if(act==='crumb'){cur.path=cur.path.slice(0,+el.dataset.i+1);render()}
+  else if(act==='enter'){cur.path.push(id);render()}
+  else if(act==='view'){openFile(id)}
+  else if(act==='upload'){$('#pick').click()}
+  else if(act==='newFolder'){const name=await dlg({title:'New folder',label:'Folder name',ok:'Create'});if(name){const n={id:uid(),topicId:cur.topic,parentId:cur.path.length?cur.path[cur.path.length-1]:null,type:'folder',name,size:0,added:Date.now()};await put('nodes',n);nodes.push(n);render()}}
+  else if(act==='rename'){const n=nodes.find(x=>x.id===id);const name=await dlg({title:'Rename',value:n.name});if(name){n.name=name;await put('nodes',n);render()}}
+  else if(act==='del'){const n=nodes.find(x=>x.id===id);const sub=n.type==='folder'?descendants(id):[];if(await dlg({title:`Delete “${n.name}”?`,body:n.type==='folder'?`This also deletes ${plural(sub.length,'item')} inside it.`:'This removes the PDF from this browser.',ok:'Delete',input:false,danger:true})){await removeNodes([n,...sub]);render()}}
+});
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches('.card,.row')){e.preventDefault();e.target.click()}
+});
+let dc=0;
+addEventListener('dragenter',e=>{if(cur.topic){e.preventDefault();dc++;document.body.classList.add('dragging')}});
+addEventListener('dragleave',()=>{if(--dc<=0){dc=0;document.body.classList.remove('dragging')}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dc=0;document.body.classList.remove('dragging');if(cur.topic&&e.dataTransfer)addFiles([...e.dataTransfer.files])});
+
+(async()=>{topics=(await getAll('topics')).sort((a,b)=>a.created-b.created);nodes=await getAll('nodes');render()})();
+</script>
+</body>
+</html>
